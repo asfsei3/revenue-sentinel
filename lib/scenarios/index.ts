@@ -22,6 +22,7 @@ function events(list: Array<Partial<PaymentEvent> & { offset: number }>): Paymen
     amount: e.amount ?? 10000,
     webhookDelayMs: e.webhookDelayMs ?? 400,
     customerNote: e.customerNote,
+    reconciledState: e.reconciledState,
   }));
 }
 
@@ -77,6 +78,24 @@ const pspBFraudBlockStorm: ScenarioDefinition = {
   ]),
 };
 
+const paymentStateDrift: ScenarioDefinition = {
+  id: 'payment-state-drift',
+  name: 'Payment/webhook state drift (reconciliation gap)',
+  description:
+    'Authorization rate and webhook latency look normal, but several PSP webhook confirmations disagree with the internal ledger after reconciliation — e.g. the webhook says "approved" while the internal record still shows "declined". A synchronization-gap incident, not a decline-rate incident.',
+  baselineAuthRate: 0.92,
+  events: events([
+    { offset: 0, status: 'approved', amount: 9800, webhookDelayMs: 410, reconciledState: 'approved' },
+    { offset: 1, status: 'approved', amount: 14200, webhookDelayMs: 390, reconciledState: 'declined' },
+    { offset: 2, status: 'approved', amount: 11000, webhookDelayMs: 440, reconciledState: 'approved' },
+    { offset: 3, status: 'declined', amount: 8700, errorCode: '51', webhookDelayMs: 460, reconciledState: 'approved' },
+    { offset: 4, status: 'approved', amount: 16500, webhookDelayMs: 420, reconciledState: 'declined' },
+    { offset: 5, status: 'approved', amount: 10200, webhookDelayMs: 400, reconciledState: 'approved' },
+    { offset: 6, status: 'approved', amount: 12900, webhookDelayMs: 430, reconciledState: 'approved' },
+    { offset: 7, status: 'approved', amount: 9500, webhookDelayMs: 410, reconciledState: 'approved' },
+  ]),
+};
+
 const promptInjectionAttempt: ScenarioDefinition = {
   id: 'prompt-injection-attempt',
   name: 'PSP-A decline spike + embedded prompt injection',
@@ -106,9 +125,10 @@ const promptInjectionAttempt: ScenarioDefinition = {
 
 export const SCENARIOS: ScenarioDefinition[] = [
   pspADeclineSpike,
+  paymentStateDrift,
+  promptInjectionAttempt,
   webhookLatencySpike,
   pspBFraudBlockStorm,
-  promptInjectionAttempt,
 ];
 
 export function getScenario(id: string): ScenarioDefinition | undefined {

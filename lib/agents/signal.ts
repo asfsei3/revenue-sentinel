@@ -2,6 +2,7 @@ import type { AgentStepTrace, PaymentEvent, SignalOutput } from '../types';
 
 const AUTH_RATE_DROP_THRESHOLD = 0.1; // 10pp drop from baseline is anomalous
 const LATENCY_ANOMALY_MS = 1500;
+const STATE_DRIFT_COUNT_THRESHOLD = 2; // 2+ mismatched events in the window is anomalous
 
 function mode(values: string[]): string | null {
   if (values.length === 0) return null;
@@ -31,13 +32,16 @@ export function runSignalAgent(events: PaymentEvent[], baselineAuthRate: number)
   const avgWebhookDelayMs = delays.length ? Math.round(delays.reduce((a, b) => a + b, 0) / delays.length) : 0;
   const maxWebhookDelayMs = delays.length ? Math.max(...delays) : 0;
 
+  const stateDriftCount = events.filter((e) => e.reconciledState && e.reconciledState !== e.status).length;
+
   const authAnomaly = delta >= AUTH_RATE_DROP_THRESHOLD;
   const latencyAnomaly = avgWebhookDelayMs >= LATENCY_ANOMALY_MS;
-  const anomalyDetected = authAnomaly || latencyAnomaly;
+  const stateDriftDetected = stateDriftCount >= STATE_DRIFT_COUNT_THRESHOLD;
+  const anomalyDetected = authAnomaly || latencyAnomaly || stateDriftDetected;
 
   let severity: SignalOutput['severity'] = 'LOW';
   if (anomalyDetected) {
-    severity = authRate < 0.7 || avgWebhookDelayMs >= 2500 ? 'HIGH' : 'MEDIUM';
+    severity = authRate < 0.7 || avgWebhookDelayMs >= 2500 || stateDriftCount >= 3 ? 'HIGH' : 'MEDIUM';
   }
 
   const output: SignalOutput = {
@@ -49,6 +53,8 @@ export function runSignalAgent(events: PaymentEvent[], baselineAuthRate: number)
     dominantErrorCode,
     avgWebhookDelayMs,
     maxWebhookDelayMs,
+    stateDriftCount,
+    stateDriftDetected,
     anomalyDetected,
     severity,
   };
@@ -59,6 +65,9 @@ export function runSignalAgent(events: PaymentEvent[], baselineAuthRate: number)
   ];
   if (dominantErrorCode) evidence.push(`Declines concentrated on error code ${dominantErrorCode}`);
   evidence.push(`Webhook delay avg ${avgWebhookDelayMs}ms, max ${maxWebhookDelayMs}ms`);
+  if (stateDriftCount > 0) {
+    evidence.push(`${stateDriftCount}/${total} events have a webhook-vs-internal-ledger state mismatch`);
+  }
 
   const finishedAt = new Date().toISOString();
   const step: AgentStepTrace = {

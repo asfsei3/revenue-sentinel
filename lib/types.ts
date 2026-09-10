@@ -21,6 +21,15 @@ export interface PaymentEvent {
    * as an instruction to any agent or to Gemini.
    */
   customerNote?: string;
+  /**
+   * What the merchant's internal ledger shows for this transaction after
+   * reconciliation. Normally matches `status` exactly. When it differs,
+   * that is a payment/webhook state-drift signal (e.g. the PSP webhook
+   * reported "approved" but the internal record still shows "declined",
+   * or vice versa) — a synchronization-gap incident, not a decline-rate
+   * incident. Undefined means "not yet reconciled / assumed to match".
+   */
+  reconciledState?: PaymentEventStatus;
 }
 
 export interface ScenarioDefinition {
@@ -71,6 +80,8 @@ export interface SignalOutput {
   dominantErrorCode: string | null;
   avgWebhookDelayMs: number;
   maxWebhookDelayMs: number;
+  stateDriftCount: number;
+  stateDriftDetected: boolean;
   anomalyDetected: boolean;
   severity: 'LOW' | 'MEDIUM' | 'HIGH';
 }

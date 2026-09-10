@@ -41,4 +41,26 @@ describe('runSignalAgent', () => {
     expect(output.anomalyDetected).toBe(true);
     expect(output.avgWebhookDelayMs).toBeGreaterThanOrEqual(1500);
   });
+
+  it('detects payment/webhook state drift even when auth rate and latency are normal', () => {
+    const events = [
+      evt({ status: 'approved', reconciledState: 'declined' }),
+      evt({ status: 'approved', reconciledState: 'declined' }),
+      evt({ status: 'approved', reconciledState: 'approved' }),
+    ];
+    const { output } = runSignalAgent(events, 0.92);
+    expect(output.stateDriftDetected).toBe(true);
+    expect(output.stateDriftCount).toBe(2);
+    expect(output.anomalyDetected).toBe(true);
+  });
+
+  it('does not flag state drift for a single mismatched event (below threshold)', () => {
+    const events = [
+      evt({ status: 'approved', reconciledState: 'declined' }),
+      evt({ status: 'approved', reconciledState: 'approved' }),
+      evt({ status: 'approved', reconciledState: 'approved' }),
+    ];
+    const { output } = runSignalAgent(events, 0.92);
+    expect(output.stateDriftDetected).toBe(false);
+  });
 });

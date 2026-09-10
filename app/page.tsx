@@ -195,6 +195,15 @@ export default function Home() {
                         confidence {(step.confidence * 100).toFixed(0)}% · {step.reasoningMode} ·{' '}
                         {new Date(step.finishedAt).toLocaleTimeString()}
                       </div>
+                      {step.evidence.length > 0 && (
+                        <ul style={{ margin: '6px 0 0', paddingLeft: 16 }}>
+                          {step.evidence.map((e) => (
+                            <li className="small" key={e} style={{ color: '#94a3b8' }}>
+                              {e}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </>
                   ) : (
                     <span className="small">{running ? 'Waiting…' : 'Idle — run an investigation to populate this step.'}</span>
@@ -209,7 +218,13 @@ export default function Home() {
       {incident && (
         <div className="grid">
           <section className="card">
-            <div className="muted">Diagnosis &amp; evidence</div>
+            <div className="muted">
+              Diagnosis &amp; evidence{' '}
+              <span className="badge blue" style={{ marginLeft: 6 }}>
+                input: Signal Agent
+              </span>{' '}
+              <span className="badge blue">reasoning: {stepsByAgent.get('diagnosis')?.reasoningMode ?? 'mock'}</span>
+            </div>
             <h2>{incident.diagnosis.cause}</h2>
             {stepsByAgent.get('diagnosis')?.evidence.map((e) => (
               <div className="row" key={e}>
@@ -219,12 +234,25 @@ export default function Home() {
           </section>
 
           <section className="card">
-            <div className="muted">Recommended action</div>
+            <div className="muted">
+              Recommended action{' '}
+              <span className="badge blue" style={{ marginLeft: 6 }}>
+                input: Diagnosis + Revenue Impact
+              </span>{' '}
+              <span className="badge blue">reasoning: {stepsByAgent.get('recovery')?.reasoningMode ?? 'mock'}</span>
+            </div>
             <h2>{incident.recovery.description}</h2>
             <p className="small">
               Required approvals: {incident.recovery.requiredApprovals.length ? incident.recovery.requiredApprovals.join(', ') : 'none'}
             </p>
-            <span className={badgeClass(incident.governance.decision)}>{incident.governance.decision}</span>
+            {stepsByAgent.get('recovery')?.evidence.map((e) => (
+              <div className="row" key={e}>
+                → {e}
+              </div>
+            ))}
+            <div style={{ marginTop: 10 }}>
+              <span className={badgeClass(incident.governance.decision)}>{incident.governance.decision}</span>
+            </div>
             <p className="small" style={{ marginTop: 10 }}>{incident.governance.rationale}</p>
 
             {incident.governance.securityFindings.length > 0 && (

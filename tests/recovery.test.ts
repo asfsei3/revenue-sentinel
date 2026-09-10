@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { runRecoveryAgent } from '../lib/agents/recovery';
 import { runSignalAgent } from '../lib/agents/signal';
 import { runDiagnosisAgent } from '../lib/agents/diagnosis';
+import { runRevenueImpactAgent } from '../lib/agents/revenueImpact';
 import type { PaymentEvent } from '../lib/types';
 
 function evt(partial: Partial<PaymentEvent>): PaymentEvent {
@@ -21,7 +22,8 @@ describe('runRecoveryAgent', () => {
     const events = [evt({}), evt({})];
     const { output: signal } = runSignalAgent(events, 0.92);
     const { output: diagnosis } = await runDiagnosisAgent(events, signal, 'mock');
-    const { output } = runRecoveryAgent(signal, diagnosis);
+    const { output: revenueImpact } = runRevenueImpactAgent(events, signal);
+    const { output } = await runRecoveryAgent(signal, diagnosis, revenueImpact, 'mock');
     expect(output.actionType).toBe('notify_ops');
     expect(output.requiredApprovals).toHaveLength(0);
   });
@@ -34,7 +36,8 @@ describe('runRecoveryAgent', () => {
     ];
     const { output: signal } = runSignalAgent(events, 0.9);
     const { output: diagnosis } = await runDiagnosisAgent(events, signal, 'mock');
-    const { output } = runRecoveryAgent(signal, diagnosis);
+    const { output: revenueImpact } = runRevenueImpactAgent(events, signal);
+    const { output } = await runRecoveryAgent(signal, diagnosis, revenueImpact, 'mock');
     expect(output.actionType).toBe('escalate_to_psp_risk_team');
   });
 
@@ -46,7 +49,8 @@ describe('runRecoveryAgent', () => {
     ];
     const { output: signal } = runSignalAgent(events, 0.92);
     const { output: diagnosis } = await runDiagnosisAgent(events, signal, 'mock');
-    const { output } = runRecoveryAgent(signal, diagnosis);
+    const { output: revenueImpact } = runRevenueImpactAgent(events, signal);
+    const { output } = await runRecoveryAgent(signal, diagnosis, revenueImpact, 'mock');
     expect(output.actionType).toBe('traffic_shift');
     expect(output.requiredApprovals.length).toBeGreaterThan(0);
   });
@@ -55,8 +59,40 @@ describe('runRecoveryAgent', () => {
     const events = [evt({ webhookDelayMs: 3000 }), evt({ webhookDelayMs: 2900 }), evt({ webhookDelayMs: 3100 })];
     const { output: signal } = runSignalAgent(events, 0.92);
     const { output: diagnosis } = await runDiagnosisAgent(events, signal, 'mock');
-    const { output } = runRecoveryAgent(signal, diagnosis);
+    const { output: revenueImpact } = runRevenueImpactAgent(events, signal);
+    const { output } = await runRecoveryAgent(signal, diagnosis, revenueImpact, 'mock');
     expect(output.actionType).toBe('open_psp_incident');
     expect(output.requiredApprovals).toHaveLength(0);
+  });
+
+  it('recommends a reconciliation incident (not a retry) for payment state drift', async () => {
+    const events = [
+      evt({ reconciledState: 'declined' }),
+      evt({ reconciledState: 'declined' }),
+      evt({ reconciledState: 'approved' }),
+    ];
+    const { output: signal } = runSignalAgent(events, 0.92);
+    expect(signal.stateDriftDetected).toBe(true);
+    const { output: diagnosis } = await runDiagnosisAgent(events, signal, 'mock');
+    const { output: revenueImpact } = runRevenueImpactAgent(events, signal);
+    const { output } = await runRecoveryAgent(signal, diagnosis, revenueImpact, 'mock');
+    expect(output.actionType).toBe('open_psp_incident');
+    expect(output.requiredApprovals.length).toBeGreaterThan(0);
+  });
+
+  it('never lets Gemini change the decided action type (mock mode is always deterministic)', async () => {
+    const events = [
+      evt({ status: 'declined', errorCode: '05', amount: 10000, webhookDelayMs: 800 }),
+      evt({ status: 'declined', errorCode: '05', amount: 12000, webhookDelayMs: 850 }),
+    ];
+    const { output: signal } = runSignalAgent(events, 0.92);
+    const { output: diagnosis } = await runDiagnosisAgent(events, signal, 'mock');
+    const { output: revenueImpact } = runRevenueImpactAgent(events, signal);
+    const runs = await Promise.all(
+      Array.from({ length: 5 }, () => runRecoveryAgent(signal, diagnosis, revenueImpact, 'mock')),
+    );
+    for (const { output } of runs) {
+      expect(output.actionType).toBe('traffic_shift');
+    }
   });
 });

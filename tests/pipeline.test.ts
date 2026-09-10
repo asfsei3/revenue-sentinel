@@ -9,6 +9,14 @@ describe('investigateScenario (mock mode, end to end)', () => {
     expect(trace.steps).toHaveLength(6);
   });
 
+  it('classifies payment/webhook state drift as its own incident type, not a decline anomaly', async () => {
+    const trace = await investigateScenario('payment-state-drift', 'mock');
+    expect(trace.signal.stateDriftDetected).toBe(true);
+    expect(trace.diagnosis.cause).toMatch(/state drift|synchronization/i);
+    expect(trace.recovery.actionType).toBe('open_psp_incident');
+    expect(trace.governance.decision).toBe('AUTO');
+  });
+
   it('classifies the webhook latency spike as AUTO (no fund-affecting action needed)', async () => {
     const trace = await investigateScenario('webhook-latency-spike', 'mock');
     expect(trace.governance.decision).toBe('AUTO');

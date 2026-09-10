@@ -23,6 +23,16 @@ function ruleBasedCause(events: PaymentEvent[], signal: SignalOutput): { cause: 
     };
   }
 
+  if (signal.stateDriftDetected) {
+    factors.push(`${signal.stateDriftCount} events show a webhook-reported status that disagrees with the internal ledger's reconciled status`);
+    factors.push('Authorization/decline rate itself is near baseline — this is a synchronization gap, not a decline-rate incident');
+    return {
+      cause:
+        'Payment/webhook state drift: the PSP webhook status and the internal payment record disagree for multiple transactions, indicating a synchronization gap between the webhook pipeline and internal ledger rather than a genuine authorization problem.',
+      factors,
+    };
+  }
+
   if (signal.authRate < signal.baseline - 0.1 && signal.dominantErrorCode) {
     factors.push(`Decline code ${signal.dominantErrorCode} is concentrated rather than evenly distributed`);
     if (signal.avgWebhookDelayMs >= 700) factors.push('Webhook latency is also elevated on failed events');

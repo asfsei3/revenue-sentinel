@@ -7,6 +7,12 @@ const RECOVERABLE_FRACTION_ASSUMPTION = 0.35;
 const OBSERVED_WINDOW_MINUTES = 8;
 const MINUTES_PER_MONTH = 30 * 24 * 60;
 
+// This agent deliberately never calls an LLM: every figure it outputs is a
+// plain arithmetic function of the (synthetic) event data, so the numbers
+// shown to a business stakeholder are always reproducible and auditable,
+// never a model-generated estimate. Gemini is used elsewhere in the
+// pipeline (Diagnosis, Recovery) only to phrase narrative text, never to
+// produce numbers — see docs/ARCHITECTURE.md.
 export function runRevenueImpactAgent(
   events: PaymentEvent[],
   signal: SignalOutput,
@@ -15,6 +21,32 @@ export function runRevenueImpactAgent(
 
   const declined = events.filter((e) => e.status === 'declined');
   const observedDeclinedAmount = declined.reduce((sum, e) => sum + e.amount, 0);
+
+  if (signal.stateDriftDetected) {
+    const drifted = events.filter((e) => e.reconciledState && e.reconciledState !== e.status);
+    const atRiskAmount = drifted.reduce((sum, e) => sum + e.amount, 0);
+    const runRateMultiplier = MINUTES_PER_MONTH / OBSERVED_WINDOW_MINUTES;
+    const output: RevenueImpactOutput = {
+      observedDeclinedAmount,
+      estimatedRecoverableAmount: atRiskAmount,
+      estimatedMonthlyRunRateImpact: Math.round(atRiskAmount * runRateMultiplier),
+      recoverableFractionAssumption: 1,
+      note: `参考値: this is not a "declined revenue" estimate — it is the transaction amount exposed to reconciliation risk (${drifted.length} transactions where the PSP webhook status and internal ledger disagree). Until reconciled, this amount is at risk of duplicate billing, under-recording, or an incorrect customer-facing status. AI-estimated from synthetic data, extrapolated to a monthly run rate from an ${OBSERVED_WINDOW_MINUTES}-minute sample.`,
+    };
+    const finishedAt = new Date().toISOString();
+    const step: AgentStepTrace = {
+      agent: 'revenue_impact',
+      label: 'Revenue Impact Agent',
+      startedAt,
+      finishedAt,
+      summary: `Estimated revenue-at-risk from reconciliation drift: ¥${atRiskAmount.toLocaleString()} (¥${output.estimatedMonthlyRunRateImpact.toLocaleString()} monthly run-rate estimate).`,
+      evidence: [`¥${atRiskAmount.toLocaleString()} across ${drifted.length} state-mismatched events in the observed window`, output.note],
+      confidence: drifted.length >= 2 ? 0.7 : 0.45,
+      reasoningMode: 'mock',
+      data: output as unknown as Record<string, unknown>,
+    };
+    return { output, step };
+  }
 
   // Suspected-fraud declines (code 59) are not counted as recoverable —
   // retrying a fraud block is not a legitimate recovery action.
@@ -31,7 +63,7 @@ export function runRevenueImpactAgent(
     recoverableFractionAssumption: recoverableFraction,
     note: isFraudCode
       ? '参考値: suspected-fraud declines are excluded from the recoverable estimate — they should not be retried automatically.'
-      : `参考値: assumes ${Math.round(recoverableFraction * 100)}% of declined volume in this window is recoverable via legitimate retry/routing; extrapolated to a monthly run rate from an ${OBSERVED_WINDOW_MINUTES}-minute synthetic sample. This is an estimate, not a measured figure.`,
+      : `参考値: AI-estimated assumption that ${Math.round(recoverableFraction * 100)}% of declined volume in this window is recoverable via legitimate retry/routing; extrapolated to a monthly run rate from an ${OBSERVED_WINDOW_MINUTES}-minute synthetic sample. This is an estimate, not a measured figure.`,
   };
 
   const finishedAt = new Date().toISOString();

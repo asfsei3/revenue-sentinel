@@ -33,7 +33,7 @@ export async function investigateScenario(scenarioId: string, requestedMode?: st
   const { output: signal, step: signalStep } = runSignalAgent(scenario.events, scenario.baselineAuthRate);
   const { output: diagnosis, step: diagnosisStep } = await runDiagnosisAgent(scenario.events, signal, requestedMode);
   const { output: revenueImpact, step: revenueImpactStep } = runRevenueImpactAgent(scenario.events, signal);
-  const { output: recovery, step: recoveryStep } = runRecoveryAgent(signal, diagnosis);
+  const { output: recovery, step: recoveryStep } = await runRecoveryAgent(signal, diagnosis, revenueImpact, requestedMode);
   const { output: governance, step: governanceStep } = runGovernanceAgent(scenario.events, recovery);
 
   const stepsSoFar = [signalStep, diagnosisStep, revenueImpactStep, recoveryStep, governanceStep];
