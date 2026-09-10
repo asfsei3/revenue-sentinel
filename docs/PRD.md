@@ -16,16 +16,28 @@ Payment / commerce operations leader, PSP relationship owner, payment product ma
 
 ## MVP scope
 Must-have (status):
-- Anomaly scenario — **done**, 4 synthetic scenarios (`lib/scenarios`)
-- Multi-step agent trajectory — **done**, 6 agents (`lib/agents`, `lib/pipeline.ts`)
-- Business impact — **done**, Revenue Impact Agent, labeled as an estimate
+- Anomaly scenario — **done**, 5 synthetic scenarios (`lib/scenarios`),
+  covering decline spike, payment/webhook state drift, prompt injection,
+  latency-only, and suspected-fraud storm
+- Multi-step agent trajectory — **done**, 6 agents (`lib/agents`,
+  `lib/pipeline.ts`); Recovery visibly consumes Diagnosis + Revenue Impact
+  output, not independent function calls
+- Business impact — **done**, Revenue Impact Agent, labeled as an estimate,
+  never calls an LLM (numbers stay plain arithmetic)
 - Governance gate — **done**, hard policy table + human-approval endpoint that
   refuses to override a BLOCK (`lib/agents/governance.ts`,
   `app/api/incidents/[id]/approve/route.ts`)
 - Visible audit trail — **done**, Observability Agent + audit log UI panel
 - Synthetic dataset — **done**, deterministic, no real payment data
-- Google Cloud deployment — **done**, Cloud Run via `Dockerfile` /
-  `docs/DEPLOY.md`
+- Google Cloud deployment — **prepared, not yet executed**: `Dockerfile`
+  (standalone build verified locally), `deploy.sh`, and `docs/DEPLOY.md`
+  are ready; the actual `gcloud run deploy` needs to be run by someone with
+  a GCP project and the `gcloud` CLI (not available in the sandbox this was
+  built in — see `docs/SUBMISSION_CHECKLIST.md`)
+- Real Gemini reasoning — **done**, Diagnosis and Recovery agents call the
+  Gemini API directly (`lib/gemini/client.ts`), verified live (network
+  reachability + real HTTP response) and via automated fetch-mocked tests
+  (`tests/gemini.test.ts`)
 - Prompt-injection test suite — **done**, `tests/security.test.ts`,
   `tests/governance.test.ts`, and the `prompt-injection-attempt` scenario
 

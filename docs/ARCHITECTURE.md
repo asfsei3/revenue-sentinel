@@ -15,6 +15,7 @@ flowchart LR
   G --> O[Observability Agent]
 
   D -.optional.-> GEM[Gemini API<br/>lib/gemini/client.ts]
+  RC -.optional.-> GEM
   G --> SEC[Prompt-injection defense<br/>lib/security.ts]
 
   O --> LOG[Structured JSON logs<br/>-> Cloud Logging on Cloud Run]
@@ -25,21 +26,41 @@ flowchart LR
 ```
 
 Deployment target: **Cloud Run** (container built from the included `Dockerfile`).
-AI reasoning: **Gemini API** (direct REST call, no SDK dependency), used by the
-Diagnosis Agent when `AGENT_MODE=gemini` and `GEMINI_API_KEY` is set — MOCK
-mode is the default and is fully deterministic so the demo never depends on
-network access to Google's API.
+AI reasoning: **Gemini API** (direct REST call, no SDK dependency), used by
+the Diagnosis and Recovery agents when `AGENT_MODE=gemini` and
+`GEMINI_API_KEY` is set — MOCK mode is the default and is fully
+deterministic so the demo never depends on network access to Google's API.
 
 ## Agent responsibilities
 
 | Agent | Input | Output | Notes |
 |---|---|---|---|
-| Signal | synthetic `PaymentEvent[]` | authorization rate, delta vs baseline, dominant error code, webhook latency, anomaly flag + severity | pure rule-based, no LLM call |
+| Signal | synthetic `PaymentEvent[]` | authorization rate, delta vs baseline, dominant error code, webhook latency, payment/webhook state-drift count, anomaly flag + severity | pure rule-based, no LLM call |
 | Diagnosis | Signal output + events | likely root cause + contributing factors | rule-based hypothesis always computed first; Gemini (if enabled) is asked to phrase/augment it, and any failure falls back to the rule-based text unchanged |
-| Revenue Impact | events + Signal output | observed declined amount, estimated recoverable amount, monthly run-rate estimate | always labeled as an estimate/reference value; excludes suspected-fraud declines from the recoverable pool |
-| Recovery | Signal + Diagnosis output | one proposed `RecoveryPlan` with an action type and required approvals | never itself executes anything |
+| Revenue Impact | events + Signal output | observed declined amount, estimated recoverable amount (or, for state-drift incidents, amount at risk of reconciliation error), monthly run-rate estimate | always labeled as an estimate/reference value; never calls an LLM — every figure is plain arithmetic over the event data, kept reproducible and auditable; excludes suspected-fraud declines from the recoverable pool |
+| Recovery | Signal + Diagnosis + Revenue Impact output | one proposed `RecoveryPlan` with an action type and required approvals | the action **type** is always decided by a fixed rule table (`decideAction()` in `lib/agents/recovery.ts`), never by the LLM; Gemini (if enabled) only phrases the human-readable operational description of the already-decided action — see Security Design below for why. Never itself executes anything |
 | Governance | events + Recovery plan | `AUTO` / `APPROVAL` / `BLOCK` + rationale + security findings | the only agent with authority to change the incident's execution status; see below |
 | Observability | all prior steps | structured decision trail + audit log entries | writes one structured JSON log line per step; Cloud Logging ingests stdout JSON automatically on Cloud Run |
+
+### Why Gemini never decides the action type or a number
+
+Two deliberate scope limits, both defensive:
+
+- **Revenue Impact never calls an LLM.** Every number shown to a business
+  stakeholder is plain arithmetic over the (synthetic) event data — a
+  model could not "estimate" a different figure even if prompted to,
+  because no model is in that code path at all.
+- **Recovery's action *type* is decided by a fixed rule table before
+  Gemini is ever called**; Gemini (when enabled) only rewrites the
+  operational description of the already-decided action, under an explicit
+  system instruction not to suggest refunds/transfers or mention bypassing
+  approval. This matters because Governance's policy table
+  (`lib/agents/governance.ts`) keys directly off `actionType` — if an LLM
+  could choose that value freely, a well-crafted prompt (including one
+  smuggled in via incident data) could talk it into picking a
+  safer-sounding action type for a risky situation. Keeping that decision
+  outside the LLM closes that hole structurally, not by asking the model
+  nicely.
 
 ## Governance model
 
