@@ -12,6 +12,15 @@ interface ScenarioSummary {
 
 const AGENT_ORDER = ['signal', 'diagnosis', 'revenue_impact', 'recovery', 'governance', 'observability'] as const;
 
+const AGENT_LABELS: Record<(typeof AGENT_ORDER)[number], string> = {
+  signal: 'Signal Agent',
+  diagnosis: 'Diagnosis Agent',
+  revenue_impact: 'Revenue Impact Agent',
+  recovery: 'Recovery Agent',
+  governance: 'Governance Agent',
+  observability: 'Observability Agent',
+};
+
 function badgeClass(decision: string) {
   if (decision === 'AUTO') return 'badge green';
   if (decision === 'APPROVAL') return 'badge amber';
@@ -178,7 +187,7 @@ export default function Home() {
               const step = stepsByAgent.get(agent);
               return (
                 <div className="event" key={agent}>
-                  <b>{step?.label ?? agent}</b>
+                  <b>{step?.label ?? AGENT_LABELS[agent]}</b>
                   {step ? (
                     <>
                       <span className="small">{step.summary}</span>
