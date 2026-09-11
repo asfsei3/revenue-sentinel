@@ -1,25 +1,54 @@
-// Builds captions.srt from timeline.json (actual recorded segment
-// start/end times) and durations.json (actual narration audio length per
-// segment) so each caption is on screen for roughly the length of its
-// narration, not the whole (longer) visual dwell time.
+// Builds captions.srt (Japanese, for the silent submission video) from
+// timeline.json (the actual recorded segment start/end times written by
+// record.js). This is the flow produce.sh uses. For the English narrated
+// backup flow (produce-en-narrated.sh), see make-captions-en.js instead --
+// that one sizes each caption to spoken narration length; this one has no
+// narration to size against, so each caption simply spans its full
+// recorded segment, which gives ample reading time.
+//
+// Product/UI/technical terms are kept in English by design: Signal,
+// Diagnosis, Revenue Impact, Recovery, Governance, Observability,
+// APPROVAL, BLOCK, AUTO, Audit Trail, Cloud Logging, Cloud Run, Gemini,
+// Webhook, Synthetic Data, Control Tower, Agent. Everything else is
+// natural Japanese aimed at a Japanese hackathon judge watching with the
+// sound off.
 const fs = require('fs');
 const path = require('path');
 
 const OUT_DIR = __dirname;
 const timeline = JSON.parse(fs.readFileSync(path.join(OUT_DIR, 'timeline.json'), 'utf8'));
-const durations = JSON.parse(fs.readFileSync(path.join(OUT_DIR, 'durations.json'), 'utf8'));
-const TITLE_CARD_SECONDS = 3.0;
 
-// Short on-screen headlines -- deliberately shorter than the spoken
-// narration in segments.json, since a verbatim transcript is too much text
-// to read while also watching the UI.
+// Must match the title card duration produce.sh actually rendered (passed
+// via env var so the two files can't drift out of sync).
+const TITLE_CARD_SECONDS = Number(process.env.TITLE_CARD_SECONDS || 2);
+
+// Each segment maps to one or more caption cues, spread evenly across that
+// segment's own recorded window (we only subdivide existing segment time,
+// never add to it, so total video duration is unaffected). Splitting the
+// longer segments (02/03/04) into two cues each lets us name what each
+// agent actually did and WHY Governance reached APPROVAL or BLOCK, instead
+// of one thin summary line per segment -- while still giving each cue 12s+
+// of screen time, well above a comfortable reading pace.
 const CAPTIONS = {
-  '01-problem': 'Problem: technical signal, fragmented business decision',
-  '02-decline-spike': 'Signal -> Diagnosis -> Revenue Impact (AI-estimated, synthetic data)',
-  '03-governance': 'Recovery -> Governance: APPROVAL (human approves, nothing executes for real)',
-  '04-security': 'Prompt injection detected -> Governance: BLOCK (server-enforced)',
-  '05-observability': 'Full audit trail + structured Cloud Logging',
-  '06-closing': 'Signal -> Diagnosis -> Impact -> Recovery -> Governance -> Observability',
+  '01-problem': ['課題：決済異常の検知と、\nビジネス判断（対応要否）が分断されている'],
+  '02-decline-spike': [
+    'Signalが異常を検知（確信度90%）。\nDiagnosisが原因をPSP側の障害と推定',
+    'Revenue Impactが影響額を試算\n（この期間で¥24,045、月次換算は参考値）',
+  ],
+  '03-governance': [
+    'Recoveryがトラフィック切替による復旧案を提案。\n決済ルーティングに影響するため人の承認が必須',
+    'GovernanceがAPPROVALと判定し、承認後に反映\n（実際の決済操作は行われないデモ環境）',
+  ],
+  '04-security': [
+    '同じシナリオに不正な指示（プロンプトインジェクション）を混入。\nGovernanceが6件の不正な指示を検知',
+    '資金移動や承認回避を狙う指示を無効化し、\nGovernanceがBLOCKと判定（人の承認でも上書き不可）',
+  ],
+  '05-observability': [
+    'SignalからGovernanceまでの判断根拠・確信度・時刻を\nAudit Trailに記録し、Cloud Loggingで可観測性を確保',
+  ],
+  '06-closing': [
+    'Signal・Diagnosis・Revenue Impact・Recovery・\nGovernance・Observabilityを1つのControl Towerに統合',
+  ],
 };
 
 function fmt(sec) {
@@ -34,12 +63,18 @@ function fmt(sec) {
 let srt = '';
 let i = 1;
 for (const id of Object.keys(timeline)) {
-  const start = timeline[id].start + TITLE_CARD_SECONDS;
-  const naturalEnd = start + (durations[id] || 4) + 0.4;
-  const end = Math.min(naturalEnd, timeline[id].end + TITLE_CARD_SECONDS);
-  srt += `${i}\n${fmt(start)} --> ${fmt(end)}\n${CAPTIONS[id]}\n\n`;
-  i++;
+  const texts = CAPTIONS[id];
+  if (!texts) continue;
+  const segStart = timeline[id].start + TITLE_CARD_SECONDS;
+  const segEnd = timeline[id].end + TITLE_CARD_SECONDS;
+  const slice = (segEnd - segStart) / texts.length;
+  texts.forEach((text, idx) => {
+    const start = segStart + idx * slice;
+    const end = segStart + (idx + 1) * slice;
+    srt += `${i}\n${fmt(start)} --> ${fmt(end)}\n${text}\n\n`;
+    i++;
+  });
 }
 
-fs.writeFileSync(path.join(OUT_DIR, 'captions.srt'), srt);
+fs.writeFileSync(path.join(OUT_DIR, 'captions.srt'), srt, 'utf8');
 console.log(srt);

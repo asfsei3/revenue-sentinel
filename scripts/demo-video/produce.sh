@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
-# Produces the ~3-minute hackathon demo video end to end:
-#   narration (espeak-ng) -> browser recording (Playwright) -> pad audio to
-#   the actual recorded segment durations -> title card -> captions -> mux.
+# Produces the hackathon SUBMISSION demo video: Japanese captions only, NO
+# audio track, <=180s, 1280x720. The browser recording itself (record.js)
+# is unchanged from the English version -- only the title card duration,
+# caption language/timing, and final mux (no narration, no audio) differ.
+#
+# The original English-narrated, audio-included pipeline is preserved as
+# produce-en-narrated.sh (not deleted) in case that version is needed
+# again -- this script no longer generates or depends on it.
 #
 # Usage:
 #   cd scripts/demo-video
 #   npm install && npx playwright install --with-deps chromium   # one-time
+#   apt-get install -y ffmpeg fonts-noto-cjk                     # one-time
 #   ./produce.sh https://revenue-sentinel-xxxxx.a.run.app          # deployed
 #   ./produce.sh http://localhost:3000                             # dry run
 #
-# Requires: node, ffmpeg, espeak-ng (mbrola + mbrola-us1 optional, for a
-# less robotic voice: `apt-get install -y ffmpeg espeak-ng mbrola mbrola-us1`).
-# Output: revenue-sentinel-demo.mp4 in this directory, and copied to
+# Requires: node, ffmpeg, fonts-noto-cjk. No espeak-ng/TTS dependency in
+# this flow -- there is no narration to generate.
+# Output: revenue-sentinel-demo-ja-silent.mp4 in this directory, copied to
 # ../../submission/demo.mp4.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -22,12 +28,27 @@ if [ -z "$BASE_URL" ]; then
   exit 1
 fi
 
-for cmd in node ffmpeg espeak-ng; do
+# Trimmed from the English version's 3s to help keep the total under 180s;
+# record.js's own recorded-segment timings are untouched.
+TITLE_CARD_SECONDS=2
+# Hard safety cap: whatever the real recorded timing comes out to (browser/
+# network timing is never perfectly reproducible across environments), the
+# final output is truncated here so "<=180s" holds unconditionally. In
+# practice the recorded content (title + segments) comes in under this, so
+# the cap is a safety net, not the normal path.
+MAX_DURATION=179
+
+for cmd in node ffmpeg; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: $cmd not found. See the prerequisites in this script's header comment." >&2
     exit 1
   fi
 done
+FC_LIST_OUTPUT="$(fc-list)"
+if ! echo "$FC_LIST_OUTPUT" | grep -qi "Noto Sans CJK JP"; then
+  echo "ERROR: Noto Sans CJK JP font not found. Install with: apt-get install -y fonts-noto-cjk" >&2
+  exit 1
+fi
 
 if [ ! -d node_modules/playwright ]; then
   echo "==> Installing Playwright (one-time)..."
@@ -35,32 +56,10 @@ if [ ! -d node_modules/playwright ]; then
   npx playwright install --with-deps chromium
 fi
 
-echo "==> 1/6 Generating narration audio (espeak-ng)..."
-./generate-narration.sh
-
-echo "==> 2/6 Recording browser walkthrough against $BASE_URL ..."
+echo "==> 1/4 Recording browser walkthrough against $BASE_URL (record.js, unchanged)..."
 node record.js "$BASE_URL"
 
-echo "==> 3/6 Padding narration to actual recorded segment durations..."
-mkdir -p padded
-for id in 01-problem 02-decline-spike 03-governance 04-security 05-observability 06-closing; do
-  DUR="$(node -e "console.log(require('./timeline.json')['$id'].duration)")"
-  ffmpeg -y -i "audio/$id.wav" -af "apad" -t "$DUR" -ar 44100 -ac 1 "padded/$id.wav" -loglevel error
-done
-ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=mono -t 3 padded/00-title-silence.wav -loglevel error
-
-cat > concat_audio_list.txt <<'EOF'
-file 'padded/00-title-silence.wav'
-file 'padded/01-problem.wav'
-file 'padded/02-decline-spike.wav'
-file 'padded/03-governance.wav'
-file 'padded/04-security.wav'
-file 'padded/05-observability.wav'
-file 'padded/06-closing.wav'
-EOF
-ffmpeg -y -f concat -safe 0 -i concat_audio_list.txt -c copy full_audio.wav -loglevel error
-
-echo "==> 4/6 Building title card + concatenating with the recording..."
+echo "==> 2/4 Building a ${TITLE_CARD_SECONDS}s title card and concatenating with the recording..."
 node -e "
 const { chromium } = require('playwright');
 (async () => {
@@ -72,7 +71,7 @@ const { chromium } = require('playwright');
   await browser.close();
 })();
 "
-ffmpeg -y -loop 1 -i title-card.png -t 3 -vf "fps=25,format=yuv420p" -c:v libx264 title-card.mp4 -loglevel error
+ffmpeg -y -loop 1 -i title-card.png -t "$TITLE_CARD_SECONDS" -vf "fps=25,format=yuv420p" -c:v libx264 title-card.mp4 -loglevel error
 RAW_VIDEO="$(cat video-filename.txt)"
 ffmpeg -y -i "raw-video/$RAW_VIDEO" -vf "fps=25,format=yuv420p" -c:v libx264 -an recorded.mp4 -loglevel error
 cat > concat_video_list.txt <<'EOF'
@@ -81,19 +80,21 @@ file 'recorded.mp4'
 EOF
 ffmpeg -y -f concat -safe 0 -i concat_video_list.txt -c copy video_only.mp4 -loglevel error
 
-echo "==> 5/6 Generating captions and muxing final video..."
-node make-captions.js
-ffmpeg -y -i video_only.mp4 -i full_audio.wav \
-  -vf "subtitles=captions.srt:force_style='FontName=DejaVu Sans,FontSize=16,PrimaryColour=&H00FFFFFF,BackColour=&H99000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=40'" \
-  -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 128k -shortest \
-  revenue-sentinel-demo.mp4 -loglevel error
+echo "==> 3/4 Generating Japanese captions (make-captions.js)..."
+TITLE_CARD_SECONDS="$TITLE_CARD_SECONDS" node make-captions.js
 
-DURATION="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 revenue-sentinel-demo.mp4)"
-echo "==> 6/6 Done. Duration: ${DURATION}s"
+echo "==> 4/4 Burning captions (Noto Sans CJK JP) into a silent video, capped at ${MAX_DURATION}s..."
+ffmpeg -y -i video_only.mp4 \
+  -vf "subtitles=captions.srt:force_style='FontName=Noto Sans CJK JP,FontSize=22,PrimaryColour=&H00FFFFFF,BackColour=&H99000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=48'" \
+  -an -c:v libx264 -pix_fmt yuv420p -t "$MAX_DURATION" \
+  revenue-sentinel-demo-ja-silent.mp4 -loglevel error
+
+DURATION="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 revenue-sentinel-demo-ja-silent.mp4)"
+echo "==> Done. Duration: ${DURATION}s"
 
 mkdir -p ../../submission
-cp revenue-sentinel-demo.mp4 ../../submission/demo.mp4
+cp revenue-sentinel-demo-ja-silent.mp4 ../../submission/demo.mp4
 echo "Copied to submission/demo.mp4"
 echo
 echo "Recommended: extract a few frames and eyeball them before submitting:"
-echo "    ffmpeg -ss 30 -i revenue-sentinel-demo.mp4 -frames:v 1 check.png"
+echo "    ffmpeg -ss 30 -i revenue-sentinel-demo-ja-silent.mp4 -frames:v 1 check.png"
