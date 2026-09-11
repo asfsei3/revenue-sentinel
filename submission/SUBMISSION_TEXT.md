@@ -126,7 +126,10 @@ targeting Cloud Run with `output: 'standalone'`.
 
 ## Demo URL
 
-`<FILL IN AFTER DEPLOYMENT — see docs/DEPLOY.md / deploy.sh output>`
+https://revenue-sentinel-o7euplxxpq-an.a.run.app
+
+Deployed on Cloud Run (`asia-northeast1`). Production smoke test
+(`scripts/smoke-test.sh`): 13/13 checks passing against this URL.
 
 ## GitHub URL
 
