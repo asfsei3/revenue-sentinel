@@ -70,7 +70,12 @@ export async function runRecoveryAgent(
         'and is not yours to change. Your only job is to write one or two clear operational sentences describing how ' +
         'to carry out the given action type, using the diagnosis and estimated revenue impact as context. ' +
         'Never suggest refunds, transfers, or any action other than the given action type. Never mention approving, ' +
-        'executing, or bypassing anything — you are drafting an operational description for a human to review.',
+        'executing, or bypassing anything — you are drafting an operational description for a human to review. ' +
+        'Write your response in natural Japanese. Keep the following terms in English exactly as written, ' +
+        'wherever they appear: Signal, Diagnosis, Revenue Impact, Recovery, Governance, Observability, ' +
+        'Signal Agent, Diagnosis Agent, Revenue Impact Agent, Recovery Agent, Governance Agent, ' +
+        'Observability Agent, APPROVAL, BLOCK, AUTO, Audit Trail, Cloud Logging, Cloud Run, Gemini, ' +
+        'Webhook, Synthetic Data, Control Tower, Agent.',
       prompt:
         `Decided action type: ${decided.actionType}. ` +
         `Diagnosis: ${diagnosis.cause} ` +
