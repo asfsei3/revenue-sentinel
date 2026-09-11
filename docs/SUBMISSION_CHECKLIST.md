@@ -2,28 +2,15 @@
 
 Google Cloud Japan Agentic AI Hackathon Vol.5.
 
-## ⚠️ Verify these dates yourself before submitting
+## Deadline — confirmed by the project owner
 
-This checklist was assembled by an automated coding agent working in a
-network-sandboxed environment that could not directly load
-`zenn.dev/hackathons/google-cloud-japan-ai-hackathon-vol5` or
-`googlecloudjapanaihackathon.devpost.com` (both are blocked by the
-sandbox's egress policy — confirmed via direct `curl`, not just the fetch
-tool, and via a translate-proxy workaround, both denied). Two different
-web-search passes surfaced **conflicting** schedule information:
-
-- One source (relayed by the project owner before this checklist was
-  written): entry/submission period **8/20–10/15**, final pitch **12/1**.
-- A separate search snippet: registration by **10/15**, with the "development
-  and submission" phase running **12/10–2/15** and a final pitch at the
-  Agentic AI Summit around **3/19**.
-
-**Do not trust either date range from this document.** Open the official
-Zenn page yourself and confirm: the actual submission deadline, whether
-10/15 is only a registration/entry cutoff or the full submission deadline,
-and the demo video / architecture diagram format requirements. This
-checklist covers everything that does not depend on resolving that
-conflict.
+**Submission deadline: 2026-10-15 (Thu) 23:59 JST.** The project owner
+checked the official Zenn page directly (this session's sandbox could not
+— `zenn.dev` is egress-blocked there) and confirmed: registration +
+project submission both close 10/15 23:59, and submission materials are
+GitHub repo + deployed URL + description + architecture diagram + a
+~3-minute YouTube demo video. Earlier drafts of this checklist flagged a
+date conflict from web-search snippets — resolved, ignore those.
 
 ## PASS / GAP — requirement by requirement
 
@@ -36,12 +23,12 @@ conflict.
 | 5 | Governance / human approval / BLOCK works | **PASS** | Policy table in `lib/agents/governance.ts`; `POST /api/incidents/:id/approve` refuses (`409`) to approve a `BLOCK`ed incident server-side, not just in the UI. Tested (`tests/governance.test.ts`) |
 | 6 | Prompt injection scenario works | **PASS** | "PSP-A decline spike + embedded prompt injection" scenario; detection in `lib/security.ts`, force-escalation to `BLOCK` in Governance, tested (`tests/security.test.ts`, `tests/governance.test.ts`, `tests/pipeline.test.ts`) |
 | 7 | Observability / decision trail visible | **PASS** | Every step records evidence/confidence/reasoningMode/timestamps; audit trail panel in UI; structured JSON logs via `lib/logger.ts` |
-| 8 | Deployed URL accessible to judges | **GAP** | Requires a GCP project + `gcloud` — not available inside this sandbox (see "What could not be done from this sandbox" below). `deploy.sh` + `docs/DEPLOY.md` make this a ~5-minute manual step |
-| 9 | GitHub repository | **PASS (assuming push)** | This project lives at `revenue-sentinel/` in the `asfsei3/ai-orchestra` repo, branch `claude/revenue-sentinel-payment-agent-201fhs`. Confirm before submitting whether the hackathon wants a **dedicated** repo rather than a subdirectory of an existing one — if so, extract `revenue-sentinel/` into its own repo (it has no dependency on the rest of `ai-orchestra`) |
+| 8 | Deployed URL accessible to judges | **GAP — action needed from you** | Requires a GCP project + `gcloud`, not available inside the build sandbox (see "What could not be done from this sandbox" below). Run `./deploy.sh` from Cloud Shell — ~3-5 minutes, see `docs/DEPLOY.md` |
+| 9 | GitHub repository | **PASS** | Standalone public repo: https://github.com/asfsei3/revenue-sentinel — extracted from the original `ai-orchestra` monorepo subdirectory with its real 5-commit history preserved (`git subtree split`), verified via the GitHub API: correct root layout (`README.md`, `docs/`, `package.json`, `Dockerfile`, `deploy.sh`, `app/`, `lib/`, `tests/` all at repo root), no `node_modules`/`.next`/secrets committed, 5 commits with the intended messages/dates, default branch `main` |
 | 10 | Architecture diagram | **PASS** | Mermaid diagram in `docs/ARCHITECTURE.md`, renders natively on GitHub |
-| 11 | 3-minute demo video | **GAP (script ready, recording not done by this session)** | `docs/DEMO_SCRIPT.md` has a timed script for scenarios 1-3; see that doc's note on what a Playwright-recorded silent walkthrough can and can't substitute for |
+| 11 | 3-minute demo video | **GAP — action needed from you** | `docs/DEMO_SCRIPT.md` has a timed script for scenarios 1-3 and a recording checklist. A silent Playwright walkthrough exists as a base/reference only (recorded against localhost, no narration) — the actual submission needs a real recording against the **deployed** URL, narrated, uploaded to YouTube per the official rules |
 | 12 | README / submission materials | **PASS** | `README.md` covers Problem / Why existing approaches are insufficient / Solution / Agent architecture / Governance / Business impact / Google Cloud services used / Security / Demo instructions / Deployment / Limitations / Synthetic data disclaimer |
-| 13 | Development-period eligibility rule | **UNVERIFIED** | If the rule is "don't submit a project substantially built before the hackathon's official start," note that the underlying `ai-orchestra` product this session also touches is a separate, pre-existing project — `revenue-sentinel/` itself was built new in this session, on its own branch, with no shared code. Confirm the exact rule text and, if a standalone repo is required, extract `revenue-sentinel/` before the official start date registers it as "existing" |
+| 13 | Development-period eligibility rule | **Mitigated** | This repo (`asfsei3/revenue-sentinel`) was created fresh and contains only Revenue Sentinel's own history — it has no connection to the pre-existing `ai-orchestra` product beyond having been built by the same coding session. Confirm the exact eligibility rule text yourself, but a dedicated repo with its own from-scratch commit history is the strongest available position |
 
 ## What could not be done from this sandbox (and why)
 
