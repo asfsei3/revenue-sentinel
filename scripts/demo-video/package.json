@@ -1,0 +1,9 @@
+{
+  "name": "revenue-sentinel-demo-video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone toolkit to produce the hackathon demo video. Not part of the app build.",
+  "dependencies": {
+    "playwright": "1.55.1"
+  }
+}

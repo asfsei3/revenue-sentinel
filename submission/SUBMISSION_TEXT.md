@@ -134,7 +134,11 @@ https://github.com/asfsei3/revenue-sentinel
 
 ## Video URL
 
-`<FILL IN AFTER YOUTUBE UPLOAD — see submission/VIDEO_UPLOAD.md>`
+`<FILL IN AFTER YOUTUBE UPLOAD>` — `demo.mp4` in this folder plus a
+pre-written title/description/thumbnail and 3-step upload guide are ready
+in `VIDEO_UPLOAD.md`. Re-run `scripts/demo-video/produce.sh <deployed-url>`
+against the real Cloud Run URL before uploading — the current `demo.mp4` is
+a localhost dry run.
 
 ## Synthetic data & scope disclaimer
 

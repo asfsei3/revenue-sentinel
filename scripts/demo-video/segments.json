@@ -1,0 +1,26 @@
+[
+  {
+    "id": "01-problem",
+    "text": "Payment incidents are usually detected as a technical number, like a decline rate or a webhook delay. The business impact, and the recovery decision, stay fragmented, discovered by different people, later. Revenue Sentinel connects signal to a governed decision, autonomously, in one pipeline."
+  },
+  {
+    "id": "02-decline-spike",
+    "text": "Here is a payment decline spike. Signal detects the authorization rate drop. Diagnosis explains the likely cause, using Signal's own output. Revenue Impact turns that into a number: estimated recoverable revenue for this window, and a monthly run rate estimate, clearly labeled as an A. I. estimated figure from synthetic data."
+  },
+  {
+    "id": "03-governance",
+    "text": "Recovery proposes one action, using both Diagnosis and Revenue Impact as input. Governance classifies it: here, Approval, because it touches payment routing. A human makes the final call, and that decision is written to the audit trail. Nothing is ever executed for real in this prototype."
+  },
+  {
+    "id": "04-security",
+    "text": "Now, a security scenario. One event's customer note field contains an embedded instruction, trying to get the pipeline to auto-approve a refund, and disable logging. Governance detects it, never follows it, and force-blocks the action. The human approval A. P. I. itself refuses to override a Block, on the server side."
+  },
+  {
+    "id": "05-observability",
+    "text": "Every step: evidence, confidence, reasoning mode, and timestamp, is recorded in the audit trail, and picked up automatically by Cloud Logging as structured logs. Nothing about this incident's handling is a black box."
+  },
+  {
+    "id": "06-closing",
+    "text": "Revenue Sentinel connects payment signals, A. I. investigation, revenue impact, recovery, and governance, into one autonomous control loop: running on Cloud Run, reasoning with Gemini, and never executing anything risky without a human in the loop."
+  }
+]

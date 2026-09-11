@@ -1,0 +1,12 @@
+node_modules/
+audio/
+padded/
+raw-video/
+*.wav
+*.mp4
+*.png
+timeline.json
+durations.json
+video-filename.txt
+captions.srt
+concat_*.txt
