@@ -3,6 +3,8 @@
 Autonomous Payment Revenue Recovery & Incident Control Tower — an entry for
 the 5th Agentic AI Hackathon with Google Cloud.
 
+![Revenue Sentinel architecture diagram](docs/images/architecture.png)
+
 > **Synthetic data disclaimer**: every payment event in this project is
 > synthetic and defined in code (`lib/scenarios/index.ts`). No real PAN,
 > CVC, cardholder PII, or PSP credentials are ever requested, stored, or

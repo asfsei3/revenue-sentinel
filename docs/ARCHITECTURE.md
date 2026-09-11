@@ -2,6 +2,10 @@
 
 ## Overview
 
+![Revenue Sentinel architecture diagram](images/architecture.png)
+
+Mermaid source (renders natively on GitHub; kept in sync with the PNG above):
+
 ```mermaid
 flowchart LR
   UI[Next.js Control Tower<br/>app/page.tsx] -->|fetch| API[Next.js Route Handlers<br/>app/api/*]
