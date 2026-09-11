@@ -23,9 +23,15 @@ const AGENT_LABELS: Record<(typeof AGENT_ORDER)[number], string> = {
 
 function badgeClass(decision: string) {
   if (decision === 'AUTO') return 'badge green';
-  if (decision === 'APPROVAL') return 'badge amber';
+  if (decision === 'APPROVAL') return 'badge green';
   if (decision === 'BLOCK') return 'badge red';
   return 'badge blue';
+}
+
+function severityBadgeClass(severity: string) {
+  if (severity === 'HIGH') return 'badge red';
+  if (severity === 'MEDIUM') return 'badge amber';
+  return 'badge green';
 }
 
 export default function Home() {
@@ -92,7 +98,7 @@ export default function Home() {
   return (
     <main className="shell">
       <div className="top">
-        <div className="brand">◈ Revenue Sentinel</div>
+        <div className="brand"><span className="brand-mark">◈</span> Revenue Sentinel</div>
         <div className="pill">AGENTIC PAYMENT CONTROL TOWER</div>
       </div>
 
@@ -148,7 +154,7 @@ export default function Home() {
           <button className="button" style={{ marginTop: 14 }} onClick={runInvestigation} disabled={running || !selectedScenario}>
             {running ? 'Agents working…' : 'Run incident investigation'}
           </button>
-          {error && <p className="small" style={{ color: '#fda4af', marginTop: 10 }}>{error}</p>}
+          {error && <p className="small text-loss" style={{ marginTop: 10 }}>{error}</p>}
 
           {incident && (
             <div style={{ marginTop: 20 }}>
@@ -160,17 +166,19 @@ export default function Home() {
               </div>
               <div className="row">
                 <span>Severity</span>
-                <span className={badgeClass(incident.signal.severity === 'HIGH' ? 'BLOCK' : incident.signal.severity === 'MEDIUM' ? 'APPROVAL' : 'AUTO')}>
-                  {incident.signal.severity}
-                </span>
+                <span className={severityBadgeClass(incident.signal.severity)}>{incident.signal.severity}</span>
               </div>
               <div className="row">
-                <span>Estimated recoverable revenue (window)</span>
-                <strong>¥{incident.revenueImpact.estimatedRecoverableAmount.toLocaleString()}</strong>
+                <span>{incident.signal.stateDriftDetected ? 'Estimated revenue at risk (window)' : 'Estimated recoverable revenue (window)'}</span>
+                <strong className={incident.signal.stateDriftDetected ? undefined : 'value-gold'}>
+                  ¥{incident.revenueImpact.estimatedRecoverableAmount.toLocaleString()}
+                </strong>
               </div>
               <div className="row">
                 <span>Estimated monthly run-rate impact</span>
-                <strong>¥{incident.revenueImpact.estimatedMonthlyRunRateImpact.toLocaleString()}</strong>
+                <strong className={incident.signal.stateDriftDetected ? undefined : 'value-gold'}>
+                  ¥{incident.revenueImpact.estimatedMonthlyRunRateImpact.toLocaleString()}
+                </strong>
               </div>
               <div className="row">
                 <span>Governance decision</span>
@@ -257,9 +265,9 @@ export default function Home() {
 
             {incident.governance.securityFindings.length > 0 && (
               <div style={{ marginTop: 10 }}>
-                <div className="small" style={{ color: '#fda4af', fontWeight: 700 }}>Security findings (neutralized, not executed):</div>
+                <div className="small text-loss" style={{ fontWeight: 700 }}>Security findings (neutralized, not executed):</div>
                 {incident.governance.securityFindings.map((f, i) => (
-                  <div className="small" key={i} style={{ color: '#fda4af' }}>
+                  <div className="small text-loss" key={i}>
                     • {f.matchedPattern}: “{f.excerpt}”
                   </div>
                 ))}
