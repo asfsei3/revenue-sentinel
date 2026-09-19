@@ -237,10 +237,10 @@ function translateGovernanceRationale(text: string): string {
 
 function translateGovernanceEvidence(text: string): string {
   if (text === 'hard-block: fund-movement action types are never permitted to execute') {
-    return 'hard-block: 資金移動を伴うアクションタイプは常に実行が許可されません';
+    return '強制ブロック: 資金移動を伴うアクションタイプは常に実行が許可されません';
   }
   if (text === 'escalation: detected prompt-injection / control-bypass attempt forces BLOCK regardless of requested action') {
-    return 'escalation: プロンプトインジェクション/制御回避の試みを検知したため、要求されたアクションに関わらずBLOCKへ強制的にエスカレーションされました';
+    return 'エスカレーション: プロンプトインジェクション/制御回避の試みを検知したため、要求されたアクションに関わらずBLOCKへ強制的にエスカレーションされました';
   }
   let m = text.match(/^base classification for action type "(.+?)": (\w+)$/);
   if (m) return `アクションタイプ「${m[1]}」の基本分類: ${m[2]}`;
